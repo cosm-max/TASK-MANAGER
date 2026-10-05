@@ -5,11 +5,16 @@ const crypto = require('crypto'); // Built-in for unique IDs
 
 const app = express();
 const PORT = 3000;
-const TASKS_DIR = path.join(__dirname, 'tasks');
+const TASKS_DIR = process.env.VERCEL ? '/tmp/tasks' : path.join(__dirname, 'tasks');
 
 // Middleware to parse JSON bodies and serve static files
 app.use(express.json());
 app.use(express.static('public'));
+
+// Explicit route for Vercel to serve the index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Ensure the tasks directory exists when the server starts
 async function ensureDir() {
@@ -88,6 +93,7 @@ app.post('/tasks', async (req, res) => {
     const fileContent = `${title}\n\n${description}`;
     
     try {
+        await fs.mkdir(TASKS_DIR, { recursive: true });
         await fs.writeFile(filePath, fileContent);
         res.status(201).json({ id, title, message: 'Task created successfully.' });
     } catch (error) {
@@ -95,7 +101,11 @@ app.post('/tasks', async (req, res) => {
     }
 });
 
-// Start the server
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
+// Start the server only if run directly
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Server is running on http://localhost:${PORT}`);
+    });
+}
+
+module.exports = app;
